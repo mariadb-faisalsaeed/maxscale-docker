@@ -1,6 +1,6 @@
 # MaxScale in Docker
 
-Dockerized MariaDB MaxScale with default config for a three node galera cluster. Various settings can be configured with environemnt variables.
+Dockerized MariaDB MaxScale with default config for a three node galera cluster. Various settings can be configured with environemnt variables...
 
 ## Run
 You need to specify the addresses for DB1 through DB3 as well as passwords for service and monitoring users:
