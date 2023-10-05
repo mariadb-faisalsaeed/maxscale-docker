@@ -3,6 +3,8 @@ FROM docker.io/mariadb/maxscale:6.4.10
 COPY entrypoint.sh /entrypoint.sh
 COPY encrypt_pwd.sh /tmp
 
+USER maxscale
+
 RUN chmod g=u /etc/passwd && \
     chmod +x entrypoint.sh && \
     chmod +x /tmp/encrypt_pwd.sh && \
