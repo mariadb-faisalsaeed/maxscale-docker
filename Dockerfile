@@ -1,42 +1,51 @@
 FROM docker.io/mariadb/maxscale:6.4.10
 
 COPY entrypoint.sh /entrypoint.sh
+COPY encrypt_pwd.sh /tmp
 
-RUN yum remove -y rsyslog monit && \
-    yum clean all -y && \
-    chmod g=u /etc/passwd && \
+RUN chmod g=u /etc/passwd && \
     chmod +x entrypoint.sh && \
+    chmod +x /tmp/encrypt_pwd.sh && \
     chmod -R g=u /var/{lib,run,log,cache}/maxscale && \
     chgrp -R 0 /var/{lib,run,log,cache}/maxscale
 
-
 COPY maxscale.cnf /etc/maxscale.cnf
 
-USER 998
+RUN mkdir -p /maxscale/logs/maxscale_logs
+RUN chown -R maxscale:maxscale /maxscale && \
+    chown maxscale:maxscale /etc/maxscale.cnf
+
+ARG MONITORPWD=P@ssw0rd
+ARG SERVICEPWD=P@ssw0rd
+ARG REPPWD=P@ssw0rd
+
+RUN maxkeys
+
+RUN maxpasswd ${MONITORPWD} >> /tmp/monitor_password.txt && \
+    maxpasswd ${SERVICEPWD} >> /tmp/service_password.txt && \
+    maxpasswd ${REPPWD} >> /tmp/rep_password.txt
+
+RUN sed -i "s/{RepPWD}/$(cat /tmp/rep_password.txt)/g" /etc/maxscale.cnf
+RUN sed -i "s/{MonPWD}/$(cat /tmp/monitor_password.txt)/g" /etc/maxscale.cnf
+RUN sed -i "s/{SvcPWD}/$(cat /tmp/service_password.txt)/g" /etc/maxscale.cnf
+
+#RUN /tmp/encrypt_pwd.sh
+
+USER maxscale
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["maxscale", "--nodaemon", "--log=stdout"]
 
-EXPOSE 6603 3306 3307 8003
+EXPOSE 4404 4405 4406
 
-ENV SERVICE_USER=maxscale \
-    SERVICE_PWD=asdf1234 \
-    READ_WRITE_LISTEN_ADDRESS=127.0.0.1 \
-    READ_WRITE_PORT=3307 \
-    READ_WRITE_PROTOCOL=MariaDBClient \
-    MASTER_ONLY_LISTEN_ADDRESS=127.0.0.1 \
-    MASTER_ONLY_PORT=3306 \
-    MASTER_ONLY_PROTOCOL=MariaDBClient \
-    MONITOR_USER=maxscale \
-    MONITOR_PWD=asdf123 \
-    AUTH_CONNECT_TIMEOUT=10s \
-    AUTH_READ_TIMEOUT=10s \
-    DB1_ADDRESS=db1.example.org \
-    DB2_ADDRESS=db2.example.org \
-    DB3_ADDRESS=db3.example.org \
-    DB1_PORT=3306 \
-    DB2_PORT=3306 \
-    DB3_PORT=3306 \
-    DB1_PRIO=1 \
-    DB2_PRIO=2 \
-    DB3_PRIO=3
+ENV MONITOR_USER=${MONITORUSER} \
+    MONITOR_PWD=${MONITORPWD} \
+    SERVICE_USER=${SERVICEUSER} \
+    SERVICE_PWD=${SERVICEPWD} \
+    REP_PWD=${REPPWD} \
+    READ_WRITE_SPLIT_PORT=4404 \
+    READ_ONLY_SLAVE_PORT=4406 \
+    READ_WRITE_MASTER_PORT=4405
+
+#docker build -t local/maxscale:v0.1 .
+#docker system prune -a
