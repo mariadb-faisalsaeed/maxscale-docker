@@ -1,53 +1,76 @@
-FROM docker.io/mariadb/maxscale:6.4.10
+FROM docker.io/redhat/ubi8
 
-COPY entrypoint.sh /entrypoint.sh
-COPY encrypt_pwd.sh /tmp
+ENV MXS_VERSION=6.4.10
 
-USER maxscale
+RUN dnf -y install curl
 
-RUN chmod g=u /etc/passwd && \
-    chmod +x entrypoint.sh && \
-    chmod +x /tmp/encrypt_pwd.sh && \
-    chmod -R g=u /var/{lib,run,log,cache}/maxscale && \
-    chgrp -R 0 /var/{lib,run,log,cache}/maxscale
+# Update System
+COPY epel-8.rpm .
+RUN dnf -y localinstall epel-8.rpm && \
+    dnf -y upgrade
 
-COPY maxscale.cnf /etc/maxscale.cnf
+# Install Some Basic Dependencies & MaxScale
 
-RUN mkdir -p /maxscale/logs/maxscale_logs
-RUN chown -R maxscale:maxscale /maxscale && \
-    chown maxscale:maxscale /etc/maxscale.cnf
+RUN dnf clean expire-cache && \
+    dnf -y localinstall bind-utils \
+    findutils \
+    less \
+    monit \
+    nano \
+    ncurses \
+    net-tools \
+    openssl \
+    procps-ng \
+    rsyslog \
+    tini \
+    vim \
+    wget
 
-ARG MONITORPWD=P@ssw0rd
-ARG SERVICEPWD=P@ssw0rd
-ARG REPPWD=P@ssw0rd
+# Install Maxscale   
+COPY maxscale-6.4.10.rpm .
+RUN dnf -y localinstall maxscale-6.4.10.rpm && \
+    dnf -y upgrade
 
-RUN maxkeys
+# Copy Files To Image
+#COPY config/maxscale.cnf /etc/
+#COPY config/monit.d/ /etc/monit.d/
+COPY maxscale-start /usr/bin/
 
-RUN maxpasswd ${MONITORPWD} >> /tmp/monitor_password.txt && \
-    maxpasswd ${SERVICEPWD} >> /tmp/service_password.txt && \
-    maxpasswd ${REPPWD} >> /tmp/rep_password.txt
+# Chmod Some Files
+RUN chmod +x /usr/bin/maxscale-start
 
-RUN sed -i "s/{RepPWD}/$(cat /tmp/rep_password.txt)/g" /etc/maxscale.cnf
-RUN sed -i "s/{MonPWD}/$(cat /tmp/monitor_password.txt)/g" /etc/maxscale.cnf
-RUN sed -i "s/{SvcPWD}/$(cat /tmp/service_password.txt)/g" /etc/maxscale.cnf
+# Expose MariaDB Port
+EXPOSE 3306
 
-#RUN /tmp/encrypt_pwd.sh
+# Expose REST API port
+EXPOSE 8989
 
-USER maxscale
+# Create Persistent Volume
+VOLUME ["/var/lib/maxscale"]
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["maxscale", "--nodaemon", "--log=stdout"]
+# Copy Entrypoint To Image
+#COPY scripts/docker-entrypoint.sh /usr/bin/
 
-EXPOSE 4404 4405 4406
+# Make Entrypoint Executable & Create Legacy Symlink
+#RUN chmod +x /usr/bin/docker-entrypoint.sh && \
+#    ln -s /usr/bin/docker-entrypoint.sh /docker-entrypoint.sh
+# Clean System & Reduce Size
 
-ENV MONITOR_USER=${MONITORUSER} \
-    MONITOR_PWD=${MONITORPWD} \
-    SERVICE_USER=${SERVICEUSER} \
-    SERVICE_PWD=${SERVICEPWD} \
-    REP_PWD=${REPPWD} \
-    READ_WRITE_SPLIT_PORT=4404 \
-    READ_ONLY_SLAVE_PORT=4406 \
-    READ_WRITE_MASTER_PORT=4405
+RUN dnf clean all && \
+    rm -rf /var/cache/dnf && \
+    sed -i 's|SysSock.Use="off"|SysSock.Use="on"|' /etc/rsyslog.conf && \
+    sed -i 's|^.*module(load="imjournal"|#module(load="imjournal"|g' /etc/rsyslog.conf && \
+    sed -i 's|^.*StateFile="imjournal.state")|#  StateFile="imjournal.state"\)|g' /etc/rsyslog.conf && \
+    find /var/log -type f -exec cp /dev/null {} \; && \
+    cat /dev/null > ~/.bash_history && \
+    history -c
 
+ 
+
+# Start Up
+
+#ENTRYPOINT ["/usr/bin/tini","--","docker-entrypoint.sh"]
+
+CMD maxscale-start && monit -I
 #docker build -t local/maxscale:v0.1 .
 #docker system prune -a
