@@ -24,8 +24,10 @@ RUN dnf -y localinstall /tmp/maxscale-6.4.10.rpm
 COPY maxscale.cnf /etc/
 COPY maxscale-start /usr/bin/
 
-# Chmod Some Files
-RUN chmod +x /usr/bin/maxscale-start && mkdir -p /maxscale/logs/maxscale_logs
+# chmod the MaxScale start script and create the MaxScale root folders with chown to maxscale:maxscale
+RUN chmod +x /usr/bin/maxscale-start && \
+    mkdir -p /maxscale/logs/maxscale_logs && \
+    chown -R maxscale:maxscale /maxscale
 
 # Expose MariaDB Port
 EXPOSE 3306
@@ -45,7 +47,6 @@ RUN dnf clean all && \
     sed -i 's|^.*StateFile="imjournal.state")|#  StateFile="imjournal.state"\)|g' /etc/rsyslog.conf && \
     find /var/log -type f -exec cp /dev/null {} \; && \
     cat /dev/null > ~/.bash_history && \
-    chown -R maxscale:maxscale /maxscale && \
     history -c
 
 # Start Up
