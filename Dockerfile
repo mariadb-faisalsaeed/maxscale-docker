@@ -1,5 +1,6 @@
 FROM redhat/ubi8
 
+#Argument to select which version
 ENV MXS_VERSION=6.4.10
 
 # Install Some Basic Dependencies & MaxScale
