@@ -37,7 +37,7 @@ EXPOSE 8989
 VOLUME ["/var/lib/maxscale"]
 VOLUME ["/maxscale/logs/maxscale_logs"]
 
-RUN touch /var/log/maxscale/maxscale.log && chown -R maxscale:maxscale /var/lib/maxscale && chown -R maxscale:maxscale /maxscale
+RUN touch /maxscale/logs/maxscale_logs/maxscale.log && chown -R maxscale:maxscale /maxscale
 
 # Clean System & Reduce Size
 RUN dnf clean all && \
@@ -50,5 +50,5 @@ RUN dnf clean all && \
     history -c
 
 # Start Up
-CMD maxscale-start && tail -vf -n +1 /var/log/maxscale/maxscale.log
+CMD maxscale-start && tail -vf -n +1 /maxscale/logs/maxscale_logs/maxscale.log
 # ;~)
