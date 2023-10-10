@@ -1,35 +1,34 @@
-FROM docker.io/redhat/ubi8
+FROM redhat/ubi8
 
 ENV MXS_VERSION=6.4.10
 
 RUN dnf -y install curl
 
+#RUN wget https://dl.fedoraproject.org/pub/epel/8/Everything/x86_64/Packages/m/monit-5.30.0-1.el8.x86_64.rpm
+
 # Update System
-COPY epel-8.rpm .
-RUN dnf -y localinstall epel-8.rpm && \
-    dnf -y upgrade
+#COPY epel-8.rpm /tmp
+COPY monit.rpm /tmp
+RUN dnf -y localinstall /tmp/monit.rpm
 
 # Install Some Basic Dependencies & MaxScale
 
 RUN dnf clean expire-cache && \
-    dnf -y localinstall bind-utils \
+    dnf -y install bind-utils \
     findutils \
     less \
-    monit \
     nano \
     ncurses \
     net-tools \
     openssl \
     procps-ng \
     rsyslog \
-    tini \
-    vim \
+    curl \
     wget
 
 # Install Maxscale   
-COPY maxscale-6.4.10.rpm .
-RUN dnf -y localinstall maxscale-6.4.10.rpm && \
-    dnf -y upgrade
+COPY maxscale-6.4.10.rpm /tmp
+RUN dnf -y localinstall /tmp/maxscale-6.4.10.rpm
 
 # Copy Files To Image
 #COPY config/maxscale.cnf /etc/
@@ -64,8 +63,6 @@ RUN dnf clean all && \
     find /var/log -type f -exec cp /dev/null {} \; && \
     cat /dev/null > ~/.bash_history && \
     history -c
-
- 
 
 # Start Up
 
