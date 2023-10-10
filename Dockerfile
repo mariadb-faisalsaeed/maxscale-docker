@@ -8,9 +8,8 @@ RUN dnf -y install curl
 
 # Update System
 #COPY epel-8.rpm /tmp
-COPY monit.rpm /tmp
-RUN dnf -y localinstall /tmp/monit.rpm
-
+#COPY monit.rpm /tmp
+#RUN dnf -y localinstall /tmp/monit.rpm
 
 # Install Some Basic Dependencies & MaxScale
 
@@ -69,6 +68,6 @@ RUN dnf clean all && \
 
 #ENTRYPOINT ["/usr/bin/tini","--","docker-entrypoint.sh"]
 
-CMD maxscale-start && monit -I
+CMD maxscale-start && tail -vf -n +1 /var/log/maxscale/maxscale.log
 #docker build -t local/maxscale:v0.1 .
 #docker system prune -a
