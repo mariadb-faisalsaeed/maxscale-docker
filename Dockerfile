@@ -39,6 +39,7 @@ RUN maxkeys && \
     maxpasswd ${SERVICEPWD} >> /tmp/service_password.txt && \
     maxpasswd ${REPPWD} >> /tmp/rep_password.txt
 
+# Encrypt the maxscale.cnf file passwords using the encrypted passwords
 RUN sed -i "s/{RepPWD}/$(cat /tmp/rep_password.txt)/g" /etc/maxscale.cnf
 RUN sed -i "s/{MonPWD}/$(cat /tmp/monitor_password.txt)/g" /etc/maxscale.cnf
 RUN sed -i "s/{SvcPWD}/$(cat /tmp/service_password.txt)/g" /etc/maxscale.cnf
