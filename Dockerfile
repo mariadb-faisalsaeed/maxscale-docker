@@ -13,8 +13,7 @@ RUN dnf clean expire-cache && \
     openssl \
     procps-ng \
     rsyslog \
-    curl \
-    wget
+    curl
 
 # Install Maxscale   
 COPY maxscale-6.4.10.rpm /tmp
@@ -37,8 +36,6 @@ EXPOSE 8989
 VOLUME ["/var/lib/maxscale"]
 VOLUME ["/maxscale/logs/maxscale_logs"]
 
-RUN touch /maxscale/logs/maxscale_logs/maxscale.log && chown -R maxscale:maxscale /maxscale
-
 # Clean System & Reduce Size
 RUN dnf clean all && \
     rm -rf /var/cache/dnf && \
@@ -47,8 +44,9 @@ RUN dnf clean all && \
     sed -i 's|^.*StateFile="imjournal.state")|#  StateFile="imjournal.state"\)|g' /etc/rsyslog.conf && \
     find /var/log -type f -exec cp /dev/null {} \; && \
     cat /dev/null > ~/.bash_history && \
+    chown -R maxscale:maxscale /maxscale && \
     history -c
 
 # Start Up
-CMD maxscale-start && tail -vf -n +1 /maxscale/logs/maxscale_logs/maxscale.log
+CMD maxscale-start && tail -vf -n +1 /var/log/messages
 # ;~)
