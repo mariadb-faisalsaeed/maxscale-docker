@@ -22,12 +22,26 @@ RUN dnf -y localinstall /tmp/maxscale-6.4.10.rpm
 
 # Copy Files To Image
 COPY maxscale.cnf /etc/
-COPY maxscale-start /usr/bin/
+COPY maxscale-st* /usr/bin/
 
-# chmod the MaxScale start script and create the MaxScale root folders with chown to maxscale:maxscale
-RUN chmod +x /usr/bin/maxscale-start && \
+# chmod the MaxScale start & stop scripts, and create the MaxScale root folders with chown to maxscale:maxscale
+RUN chmod +x /usr/bin/maxscale-st* && \
     mkdir -p /maxscale/logs/maxscale_logs && \
     chown -R maxscale:maxscale /maxscale
+
+ARG MONITORPWD=P@ssw0rd
+ARG SERVICEPWD=P@ssw0rd
+ARG REPPWD=P@ssw0rd
+ 
+# Encrypt the MaxScale Keys in temp files to be used later
+RUN maxkeys && \
+    maxpasswd ${MONITORPWD} >> /tmp/monitor_password.txt && \
+    maxpasswd ${SERVICEPWD} >> /tmp/service_password.txt && \
+    maxpasswd ${REPPWD} >> /tmp/rep_password.txt
+
+RUN sed -i "s/{RepPWD}/$(cat /tmp/rep_password.txt)/g" /etc/maxscale.cnf
+RUN sed -i "s/{MonPWD}/$(cat /tmp/monitor_password.txt)/g" /etc/maxscale.cnf
+RUN sed -i "s/{SvcPWD}/$(cat /tmp/service_password.txt)/g" /etc/maxscale.cnf
 
 # Expose MariaDB Port
 EXPOSE 3306
