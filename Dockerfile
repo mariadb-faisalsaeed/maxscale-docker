@@ -2,17 +2,7 @@ FROM redhat/ubi8
 
 ENV MXS_VERSION=6.4.10
 
-RUN dnf -y install curl
-
-#RUN wget https://dl.fedoraproject.org/pub/epel/8/Everything/x86_64/Packages/m/monit-5.30.0-1.el8.x86_64.rpm
-
-# Update System
-#COPY epel-8.rpm /tmp
-#COPY monit.rpm /tmp
-#RUN dnf -y localinstall /tmp/monit.rpm
-
 # Install Some Basic Dependencies & MaxScale
-
 RUN dnf clean expire-cache && \
     dnf -y install bind-utils \
     findutils \
@@ -31,12 +21,11 @@ COPY maxscale-6.4.10.rpm /tmp
 RUN dnf -y localinstall /tmp/maxscale-6.4.10.rpm
 
 # Copy Files To Image
-#COPY config/maxscale.cnf /etc/
-#COPY config/monit.d/ /etc/monit.d/
+COPY maxscale.cnf /etc/
 COPY maxscale-start /usr/bin/
 
 # Chmod Some Files
-RUN chmod +x /usr/bin/maxscale-start
+RUN chmod +x /usr/bin/maxscale-start && mkdir -p /maxscale/logs/maxscale_logs
 
 # Expose MariaDB Port
 EXPOSE 3306
@@ -46,15 +35,11 @@ EXPOSE 8989
 
 # Create Persistent Volume
 VOLUME ["/var/lib/maxscale"]
+VOLUME ["/maxscale/logs/maxscale_logs"]
 
-# Copy Entrypoint To Image
-#COPY scripts/docker-entrypoint.sh /usr/bin/
+RUN touch /var/log/maxscale/maxscale.log && chown -R maxscale:maxscale /var/lib/maxscale && chown -R maxscale:maxscale /maxscale
 
-# Make Entrypoint Executable & Create Legacy Symlink
-#RUN chmod +x /usr/bin/docker-entrypoint.sh && \
-#    ln -s /usr/bin/docker-entrypoint.sh /docker-entrypoint.sh
 # Clean System & Reduce Size
-
 RUN dnf clean all && \
     rm -rf /var/cache/dnf && \
     sed -i 's|SysSock.Use="off"|SysSock.Use="on"|' /etc/rsyslog.conf && \
@@ -65,9 +50,5 @@ RUN dnf clean all && \
     history -c
 
 # Start Up
-
-#ENTRYPOINT ["/usr/bin/tini","--","docker-entrypoint.sh"]
-
 CMD maxscale-start && tail -vf -n +1 /var/log/maxscale/maxscale.log
-#docker build -t local/maxscale:v0.1 .
-#docker system prune -a
+# ;~)

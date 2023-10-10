@@ -1,7 +1,7 @@
 [MaxScale]
 threads=auto
 log_info=0
-syslog=1
+syslog=0
 passive=0
 logdir=/maxscale/logs/maxscale_logs
 auth_connect_timeout=20s
