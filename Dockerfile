@@ -11,6 +11,7 @@ RUN dnf -y install curl
 COPY monit.rpm /tmp
 RUN dnf -y localinstall /tmp/monit.rpm
 
+
 # Install Some Basic Dependencies & MaxScale
 
 RUN dnf clean expire-cache && \
