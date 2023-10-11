@@ -5,8 +5,7 @@ ENV MXS_VERSION=6.4.10
 
 # Install Some Basic Dependencies & MaxScale
 RUN dnf clean expire-cache && \
-    dnf -y install bind-utils \
-    findutils \
+    dnf -y install findutils \
     less \
     nano \
     ncurses \
