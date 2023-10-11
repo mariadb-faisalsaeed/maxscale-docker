@@ -1,53 +1,71 @@
-FROM docker.io/mariadb/maxscale:6.4.10
+FROM docker.io/redhat/ubi8
 
-COPY entrypoint.sh /entrypoint.sh
-COPY encrypt_pwd.sh /tmp
+ENV MXS_VERSION=6.4.10
 
-USER maxscale
+RUN dnf -y install curl
 
-RUN chmod g=u /etc/passwd && \
-    chmod +x entrypoint.sh && \
-    chmod +x /tmp/encrypt_pwd.sh && \
-    chmod -R g=u /var/{lib,run,log,cache}/maxscale && \
-    chgrp -R 0 /var/{lib,run,log,cache}/maxscale
+# Add MariaDB Enterprise Repo
+RUN curl -LsS https://downloads.mariadb.com/MariaDB/mariadb_repo_setup | \
+    bash -s -- --mariadb-maxscale-version=${MXS_VERSION} --apply
 
-COPY maxscale.cnf /etc/maxscale.cnf
+# Update System
+RUN dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm && \
+    dnf -y upgrade
 
-RUN mkdir -p /maxscale/logs/maxscale_logs
-RUN chown -R maxscale:maxscale /maxscale && \
-    chown maxscale:maxscale /etc/maxscale.cnf
+# Install Some Basic Dependencies & MaxScale
+RUN dnf clean expire-cache && \
+    dnf -y install bind-utils \
+    findutils \
+    less \
+    maxscale \
+    monit \
+    nano \
+    ncurses \
+    net-tools \
+    openssl \
+    procps-ng \
+    rsyslog \
+    tini \
+    vim \
+    wget
 
-ARG MONITORPWD=P@ssw0rd
-ARG SERVICEPWD=P@ssw0rd
-ARG REPPWD=P@ssw0rd
+# Copy Files To Image
+#COPY config/maxscale.cnf /etc/
 
-RUN maxkeys
+#COPY config/monit.d/ /etc/monit.d/
 
-RUN maxpasswd ${MONITORPWD} >> /tmp/monitor_password.txt && \
-    maxpasswd ${SERVICEPWD} >> /tmp/service_password.txt && \
-    maxpasswd ${REPPWD} >> /tmp/rep_password.txt
+COPY maxscale-start /usr/bin/
 
-RUN sed -i "s/{RepPWD}/$(cat /tmp/rep_password.txt)/g" /etc/maxscale.cnf
-RUN sed -i "s/{MonPWD}/$(cat /tmp/monitor_password.txt)/g" /etc/maxscale.cnf
-RUN sed -i "s/{SvcPWD}/$(cat /tmp/service_password.txt)/g" /etc/maxscale.cnf
+# Chmod Some Files
+RUN chmod +x /usr/bin/maxscale-start
 
-#RUN /tmp/encrypt_pwd.sh
+# Expose MariaDB Port
+EXPOSE 3306
 
-USER maxscale
+# Expose REST API port
+EXPOSE 8989
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["maxscale", "--nodaemon", "--log=stdout"]
+# Create Persistent Volume
+VOLUME ["/var/lib/maxscale"]
 
-EXPOSE 4404 4405 4406
+# Copy Entrypoint To Image
+#COPY scripts/docker-entrypoint.sh /usr/bin/
 
-ENV MONITOR_USER=${MONITORUSER} \
-    MONITOR_PWD=${MONITORPWD} \
-    SERVICE_USER=${SERVICEUSER} \
-    SERVICE_PWD=${SERVICEPWD} \
-    REP_PWD=${REPPWD} \
-    READ_WRITE_SPLIT_PORT=4404 \
-    READ_ONLY_SLAVE_PORT=4406 \
-    READ_WRITE_MASTER_PORT=4405
+# Make Entrypoint Executable & Create Legacy Symlink
+#RUN chmod +x /usr/bin/docker-entrypoint.sh && \
+#    ln -s /usr/bin/docker-entrypoint.sh /docker-entrypoint.sh
 
-#docker build -t local/maxscale:v0.1 .
-#docker system prune -a
+# Clean System & Reduce Size
+RUN dnf clean all && \
+    rm -rf /var/cache/dnf && \
+    sed -i 's|SysSock.Use="off"|SysSock.Use="on"|' /etc/rsyslog.conf && \
+    sed -i 's|^.*module(load="imjournal"|#module(load="imjournal"|g' /etc/rsyslog.conf && \
+    sed -i 's|^.*StateFile="imjournal.state")|#  StateFile="imjournal.state"\)|g' /etc/rsyslog.conf && \
+    find /var/log -type f -exec cp /dev/null {} \; && \
+    cat /dev/null > ~/.bash_history && \
+    history -c
+
+# Start Up
+#ENTRYPOINT ["/usr/bin/tini","--","docker-entrypoint.sh"]
+
+CMD maxscale-start && monit -I
