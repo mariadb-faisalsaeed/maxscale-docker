@@ -34,14 +34,9 @@ ARG REPPWD=P@ssw0rd
  
 # Encrypt the MaxScale Keys in temp files to be used later
 RUN maxkeys && \
-    maxpasswd ${MONITORPWD} >> /tmp/monitor_password.txt && \
-    maxpasswd ${SERVICEPWD} >> /tmp/service_password.txt && \
-    maxpasswd ${REPPWD} >> /tmp/rep_password.txt
-
-# Encrypt the maxscale.cnf file passwords using the encrypted passwords
-RUN sed -i "s/{RepPWD}/$(cat /tmp/rep_password.txt)/g" /etc/maxscale.cnf
-RUN sed -i "s/{MonPWD}/$(cat /tmp/monitor_password.txt)/g" /etc/maxscale.cnf
-RUN sed -i "s/{SvcPWD}/$(cat /tmp/service_password.txt)/g" /etc/maxscale.cnf
+    sed -i "s/{RepPWD}/$(maxpasswd ${REPPWD})/g" /etc/maxscale.cnf && \
+    sed -i "s/{MonPWD}/$(maxpasswd ${MONITORPWD})/g" /etc/maxscale.cnf && \
+    sed -i "s/{SvcPWD}/$(maxpasswd ${SERVICEPWD})/g" /etc/maxscale.cnf
 
 # Expose MariaDB Port
 EXPOSE 3306
@@ -52,6 +47,9 @@ EXPOSE 8989
 # Create Persistent Volume
 VOLUME ["/var/lib/maxscale"]
 VOLUME ["/maxscale/logs/maxscale_logs"]
+
+RUN touch /maxscale/logs/maxscale_logs/maxscale.log && \
+    chown -R maxscale:maxscale /maxscale/logs
 
 # Clean System & Reduce Size
 RUN dnf clean all && \
@@ -64,5 +62,5 @@ RUN dnf clean all && \
     history -c
 
 # Start Up
-CMD maxscale-start && tail -vf -n +1 /var/log/messages
+CMD maxscale-start && tail -vf -n +1 /maxscale/logs/maxscale_logs/maxscale.log
 # ;~)
